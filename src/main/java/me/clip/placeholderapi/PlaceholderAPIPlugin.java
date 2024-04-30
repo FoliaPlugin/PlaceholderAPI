@@ -23,6 +23,7 @@ package me.clip.placeholderapi;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import me.clip.placeholderapi.commands.PlaceholderCommandRouter;
 import me.clip.placeholderapi.configuration.PlaceholderAPIConfig;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
@@ -40,6 +41,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.event.HandlerList;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
@@ -58,6 +60,7 @@ public final class PlaceholderAPIPlugin extends JavaPlugin {
     final String version = Bukkit.getServer().getClass().getPackage().getName().split("\\.")[3];
 
     boolean isSpigot;
+    boolean isFolia;
     try {
       Class.forName("org.spigotmc.SpigotConfig");
       isSpigot = true;
@@ -65,7 +68,14 @@ public final class PlaceholderAPIPlugin extends JavaPlugin {
       isSpigot = false;
     }
 
-    VERSION = new Version(version, isSpigot);
+    try {
+      Class.forName("io.papermc.paper.threadedregions.scheduler.AsyncScheduler");
+      isFolia = true;
+    } catch (final ExceptionInInitializerError | ClassNotFoundException ignored) {
+      isFolia = false;
+    }
+
+    VERSION = new Version(version, isSpigot, isFolia);
   }
 
   @NotNull
@@ -143,7 +153,6 @@ public final class PlaceholderAPIPlugin extends JavaPlugin {
     setupCommand();
     setupMetrics();
     setupExpansions();
-
     adventure = BukkitAudiences.create(this);
 
     if (config.isCloudEnabled()) {
@@ -151,7 +160,7 @@ public final class PlaceholderAPIPlugin extends JavaPlugin {
     }
 
     if (config.checkUpdates()) {
-      new UpdateChecker(this).fetch();
+      // new UpdateChecker(this).fetch();
     }
   }
 
@@ -250,9 +259,23 @@ public final class PlaceholderAPIPlugin extends JavaPlugin {
       Class.forName("org.bukkit.event.server.ServerLoadEvent");
       new ServerLoadEventListener(this);
     } catch (final ClassNotFoundException ignored) {
-      Bukkit.getScheduler()
-          .runTaskLater(this, () -> getLocalExpansionManager().load(Bukkit.getConsoleSender()), 1);
+      schedulerRunTaskLater(this, () -> getLocalExpansionManager().load(Bukkit.getConsoleSender()), 1);
     }
   }
 
+  public static void schedulerRunTask(Plugin plugin, Runnable runnable) {
+    if (getServerVersion().isFolia()) {
+      Bukkit.getGlobalRegionScheduler().execute(plugin, runnable);
+    } else {
+      Bukkit.getScheduler().runTask(plugin, runnable);
+    }
+  }
+
+  public static void schedulerRunTaskLater(Plugin plugin, Runnable runnable, long l) {
+    if (getServerVersion().isFolia()) {
+      Bukkit.getGlobalRegionScheduler().runDelayed(plugin, task -> runnable.run(), l);
+    } else {
+      Bukkit.getScheduler().runTaskLater(plugin, runnable, l);
+    }
+  }
 }
