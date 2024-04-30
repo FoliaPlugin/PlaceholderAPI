@@ -171,7 +171,7 @@ public final class PlaceholderAPIPlugin extends JavaPlugin {
 
     HandlerList.unregisterAll(this);
 
-    Bukkit.getScheduler().cancelTasks(this);
+    schedulerCancelTasks(this);
 
     adventure.close();
     adventure = null;
@@ -276,6 +276,15 @@ public final class PlaceholderAPIPlugin extends JavaPlugin {
       Bukkit.getGlobalRegionScheduler().runDelayed(plugin, task -> runnable.run(), l);
     } else {
       Bukkit.getScheduler().runTaskLater(plugin, runnable, l);
+    }
+  }
+
+  private void schedulerCancelTasks(Plugin plugin) {
+    if (getServerVersion().isFolia()) {
+      Bukkit.getAsyncScheduler().cancelTasks(plugin);
+      Bukkit.getGlobalRegionScheduler().cancelTasks(plugin);
+    } else {
+      Bukkit.getScheduler().cancelTasks(plugin);
     }
   }
 }
